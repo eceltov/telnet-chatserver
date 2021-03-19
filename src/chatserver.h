@@ -73,7 +73,7 @@ struct RoomHandler {
   void createUser(int user_socket, Room& target);
   void removeUser(const User& user, Room& target);
   bool nameUser(User& user, const std::string& username);
-  bool renameUser(User& user, const std::string& new_username);
+  void renameUser(User& user, const std::string& new_username);
   bool usernameExists(const std::string& username);
   std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
 };

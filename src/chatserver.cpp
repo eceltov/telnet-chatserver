@@ -183,6 +183,19 @@ void Room::processMessage(std::string & message, User & user) {
         return;
     }
 
+    if (message.rfind("/rename ", 0) == 0) {
+        std::string new_name = message.substr(8);
+        sanitizeMessage(new_name);
+        if (room_handler->usernameExists(new_name)) {
+            const char error[] = "This name is taken, try a different name.\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
+        }
+        else {
+            room_handler->renameUser(user, new_name);
+        }
+        return;
+    }
+
 
     if (message.rfind("/w ", 0) == 0) {
         std::string payload = message.substr(3);
@@ -310,9 +323,10 @@ bool RoomHandler::nameUser(User& user, const std::string& username) {
     return false;
 }
 
-//TODO: finish
-bool RoomHandler::renameUser(User& user, const std::string& new_username) {
-    return true;
+void RoomHandler::renameUser(User& user, const std::string& new_username) {
+    usernames.erase(usernames.find(user.username));
+    user.username = new_username;
+    usernames.insert(new_username);
 }
 
 bool RoomHandler::usernameExists(const std::string& username) {

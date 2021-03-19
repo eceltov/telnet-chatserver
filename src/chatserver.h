@@ -36,13 +36,11 @@ struct Room {
   public:
     Room(std::string name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
 
-    void addUser(User && user);
+    //void addUser(User && user);
     void sendMessageToOthers(const char* buffer, size_t buffer_size, const User & sender);
     void checkAndProcessMessages();
-    void processMessage(std::string && message, User & user);
-    bool validateName(const std::string & name); 
-    void sanitizeMessage(std::string& message);
-    void removeUser(const User& user);
+    void processMessage(std::string & message, User & user);
+    //void removeUser(const User& user);
     //void moveUser(User & user, std::string & new_room_name);
     void processRemoval();
 
@@ -63,6 +61,7 @@ struct RoomHandler {
   std::map<std::string, Room> rooms; //lowercase name -> Room
   std::stack<Room> new_rooms; //rooms to be added in next iteration
   std::set<std::string> room_names; //lowercase room names (including rooms to be added)
+  std::set<std::string> usernames;
   //TODO: automatically add room_name (should contain lowercase method)
 
   bool roomExists(const std::string& room_name); //checks if Room already exists
@@ -70,6 +69,12 @@ struct RoomHandler {
   void addNewRoomEntry(const std::string& room_name);
   void processNewRoomEntries();
   void moveUser(User& user, Room& source, Room& target);
+  void addUser(User&& user, Room& target);
+  void createUser(int user_socket, Room& target);
+  void removeUser(const User& user, Room& target);
+  bool nameUser(User& user, const std::string& username);
+  bool renameUser(User& user, const std::string& new_username);
+  bool usernameExists(const std::string& username);
   std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
 };
 

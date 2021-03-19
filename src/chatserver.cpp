@@ -1,7 +1,13 @@
 #include "socket.h"
 #include "chatserver.h"
 
-
+//should be called getLowercase()
+std::string getLowercase(const std::string& text) {
+    std::string lowered = text;
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+        [](unsigned char c){ return std::tolower(c); });
+    return lowered;
+}
 
 
 void Room::addUser(User && user) {
@@ -14,8 +20,8 @@ void Room::addUser(User && user) {
     user_count++;
 }
 
-void Room::removeUser(int socket) {
-    removal_sockets.insert(socket);
+void Room::removeUser(const User& user) {
+    removal_sockets.insert(user.socket);
     user_count--;
 }
 
@@ -86,9 +92,9 @@ void Room::processMessage(std::string && message, User & user) {
     }
 
     if (message == "/rooms") {
-        for (auto it = rooms->begin(); it != rooms->end(); it++) {
-            std::string room_name = it->first + " (" + std::to_string(it->second.user_count) + ")\n";
-            if (it->first == this->name) {
+        for (auto it = room_handler->rooms.begin(); it != room_handler->rooms.end(); it++) {
+            std::string room_name = it->second.name + " (" + std::to_string(it->second.user_count) + ")\n";
+            if (it->second.name == this->name) {
                 room_name = "->" + room_name;
             }
             else {
@@ -121,9 +127,14 @@ void Room::processMessage(std::string && message, User & user) {
             return;
         }
 
-        Room new_room(new_room_name, rooms, new_rooms);
-        //rooms->insert({new_room_name, new_room});
-        new_rooms->push(new_room);
+        if (room_handler->roomNameTaken(new_room_name)) {
+            const char error[] = "This room already exists.\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
+        }
+
+        room_handler->addNewRoomEntry(new_room_name);
+        //Room new_room(new_room_name, room_handler);
+        //room_handler->new_rooms.push(new_room);
         return;
     }
 
@@ -145,15 +156,20 @@ void Room::processMessage(std::string && message, User & user) {
         std::string new_room_name = message.substr(6);
         sanitizeMessage(new_room_name);
 
-        if (rooms->find(new_room_name) == rooms->end()) {
-            const char error[] = "The room specified does not exist.\nYou can create rooms using the /create command\n";
-            //user.creating_room = true;
-            //user.created_room_name = new_room_name;
+        if (getLowercase(new_room_name) == getLowercase(this->name)) {
+            const char error[] = "You are already in this room.\n";
             Socket::sendMessage(user.socket, error, sizeof(error));
             return;
         }
 
-        moveUser(user, new_room_name);
+        if (!room_handler->roomExists(new_room_name)) {
+            const char error[] = "The room specified does not exist.\nYou can create rooms using the /create command\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
+            return;
+        }
+
+        auto target_room = room_handler->findRoom(new_room_name);
+        room_handler->moveUser(user, *this, target_room->second);
         return;
     }
 
@@ -191,7 +207,7 @@ void Room::processMessage(std::string && message, User & user) {
 
     
 
-    if (name == "Silent") {
+    if (silent) {
         const char error[] = "This room is silent, your messages will not be shown.\n";
         Socket::sendMessage(user.socket, error, sizeof(error));
         return;
@@ -203,16 +219,7 @@ void Room::processMessage(std::string && message, User & user) {
 
 }
 
-void Room::moveUser(User & user, std::string & new_room_name) {
-    User user_cpy = user;
-    //(*rooms)[new_room_name].addUser(std::move(user_cpy));
-    auto new_room = rooms->find(new_room_name);
-    if (new_room == rooms->end()) {
-        std::cerr << "Move failure, room does not exist" << std::endl;
-    }
-    new_room->second.addUser(std::move(user_cpy));
-    removeUser(user.socket);
-}
+
 
 bool Room::validateName(const std::string & name) {
     for (auto it = name.cbegin(); it != name.cend(); it++) {
@@ -231,6 +238,59 @@ void Room::sanitizeMessage(std::string& message) {
     message.erase(0, message.find_first_not_of(" \t\n\r"));
     message.erase(message.find_last_not_of(" \t\n\r") + 1);
 }
+
+
+
+
+//////////////////////////////////////////////////
+
+
+bool RoomHandler::roomExists(const std::string& room_name) {
+    std::string lowercase_name = getLowercase(room_name);
+    if (rooms.find(lowercase_name) != rooms.end()) {
+        return true;
+    }
+    return false;
+}
+
+
+bool RoomHandler::roomNameTaken(const std::string& room_name) {
+    std::string lowercase_name = getLowercase(room_name);
+    if (room_names.find(lowercase_name) != room_names.end()) {
+        return true;
+    }
+    return false;
+}
+
+void RoomHandler::addNewRoomEntry(const std::string& room_name) {
+    Room new_room(room_name, this);
+    new_rooms.push(new_room);
+    room_names.insert(getLowercase(room_name));
+}
+
+void RoomHandler::processNewRoomEntries() {
+    while (!new_rooms.empty()) {
+        Room room = new_rooms.top(); //TODO: move, dont copy
+        new_rooms.pop();
+        rooms.insert({getLowercase(room.name), room});
+    }
+}
+
+std::map<std::string, Room>::iterator RoomHandler::findRoom(const std::string& room_name) {
+    std::string lowercase_name = getLowercase(room_name);
+    return rooms.find(lowercase_name);
+}
+
+void RoomHandler::moveUser(User& user, Room& source, Room& target) {
+    User user_cpy = user;
+    target.addUser(std::move(user_cpy));
+    source.removeUser(user);
+}
+
+
+
+////////////////////////////////////////////////////
+
 
 
 
@@ -256,13 +316,9 @@ void ChatServer::mainLoop() {
         }
 
         //add new rooms
-        while (!new_rooms.empty()) {
-            Room room = new_rooms.top(); //TODO: move, dont copy
-            new_rooms.pop();
-            rooms.insert({room.name, room});
-        }
+        room_handler.processNewRoomEntries();    
 
-        for (auto it = rooms.begin(); it != rooms.end(); it++) {
+        for (auto it = room_handler.rooms.begin(); it != room_handler.rooms.end(); it++) {
             it->second.checkAndProcessMessages();
         }
     }
@@ -283,8 +339,8 @@ void ChatServer::acceptConnection() {
 
     //find silent room
     //rooms["Silent"].addUser(std::move(new_user));
-    auto silent = rooms.find("Silent");
-    if (silent != rooms.end()) {
+    auto silent = room_handler.rooms.find("silent");
+    if (silent != room_handler.rooms.end()) {
         silent->second.addUser(std::move(new_user));
     }
     else {

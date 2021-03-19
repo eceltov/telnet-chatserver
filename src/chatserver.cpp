@@ -154,8 +154,28 @@ void Room::processMessage(std::string & message, User & user) {
         std::string removed_room_name = message.substr(8);
         sanitizeMessage(removed_room_name);
         if (!validateName(removed_room_name)) {
+            const char error[] = "Invalid room name.\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
             return;
         }
+        if (!room_handler->roomExists(removed_room_name)) {
+            const char error[] = "This room does not exist.\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
+            return;
+        }
+        if (room_handler->getRoomPopulation(removed_room_name) != 0) {
+            const char error[] = "Cannot remove populated rooms. Wait until the room is empty.\n";
+            Socket::sendMessage(user.socket, error, sizeof(error));
+            return;
+        }
+        if (room_handler->removeRoom(removed_room_name)) {
+            const char info[] = "The room has been removed.\n";
+            Socket::sendMessage(user.socket, info, sizeof(info));
+            return;
+        }
+
+        const char error[] = "That room cannot be removed.\n";
+        Socket::sendMessage(user.socket, error, sizeof(error));
 
         
         return;
@@ -324,7 +344,7 @@ bool RoomHandler::nameUser(User& user, const std::string& username) {
 }
 
 void RoomHandler::renameUser(User& user, const std::string& new_username) {
-    usernames.erase(usernames.find(user.username));
+    usernames.erase(user.username);
     user.username = new_username;
     usernames.insert(new_username);
 }
@@ -334,6 +354,22 @@ bool RoomHandler::usernameExists(const std::string& username) {
         return false;
     }
     return usernames.find(username) != usernames.end();
+}
+
+size_t RoomHandler::getRoomPopulation(const std::string& room_name) {
+    auto room = findRoom(room_name);
+    return room->second.user_count;
+}
+
+bool RoomHandler::removeRoom(const std::string& room_name) {
+    std::string lowercase_name = getLowercase(room_name);
+    auto room = findRoom(room_name);
+    if (!room->second.removable) {
+        return false;
+    }
+    rooms.erase(lowercase_name);
+    room_names.erase(room_name);
+    return true;
 }
 
 

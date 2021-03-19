@@ -52,6 +52,7 @@ struct Room {
     //std::map<std::string, Room>* rooms;
     //std::stack<Room>* new_rooms;
     bool silent = false;
+    bool removable = true;
     RoomHandler* room_handler;
 
   private: ////
@@ -67,6 +68,8 @@ struct RoomHandler {
   bool roomExists(const std::string& room_name); //checks if Room already exists
   bool roomNameTaken(const std::string& room_name); //checks if a room already has this name (including new ones)
   void addNewRoomEntry(const std::string& room_name);
+  bool removeRoom(const std::string& room_name);
+  size_t getRoomPopulation(const std::string& room_name);
   void processNewRoomEntries();
   void moveUser(User& user, Room& source, Room& target);
   void addUser(User&& user, Room& target);
@@ -84,6 +87,7 @@ class ChatServer {
     ChatServer() {
       Room silent_room("Silent", &room_handler);
       silent_room.silent = true;
+      silent_room.removable = false;
       room_handler.rooms.insert({"silent", silent_room});
     }
 

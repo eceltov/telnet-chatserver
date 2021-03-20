@@ -82,6 +82,8 @@ void Room::processMessage(std::string& message, User& user) {
         }
         else {
             room_handler->nameUser(user, message);
+            const char info[] = "Welcome to the server. Type /help for a summary of commands.\n";
+            Socket::sendMessage(user.socket, info, sizeof(info));
             if (!silent) {
                 std::string join_message = "New user joined: " + user.username + "\n";
                 sendMessageToOthers(join_message.c_str(), join_message.size() + 1, user);    
@@ -222,7 +224,23 @@ void Room::processMessage(std::string& message, User& user) {
             }
         }
     }
-    //TODO: /help
+    else if (message == "/help") {
+        const char help[] = 
+        "-----------------------------------------------\n"
+        "ChatServer commands:\n"
+        "/rooms -> displays all rooms\n"
+        "/users -> displays all users in this room\n"
+        "/leave -> closes your connection to this server\n"
+        "/create <name> -> creates a room with given name\n"
+        "/remove <name> -> removes the room with given name\n"
+        "/join <name> -> moves you to the room with given name\n"
+        "/rename <name> -> changes your name\n"
+        "/w <name> <message> -> sends a private message to a user with given name (in this room)\n"
+        "none of the above -> sends your message to all users in current room\n"
+        "the default room is silent, move to a different one to chat with other users\n"
+        "-----------------------------------------------\n";
+        Socket::sendMessage(user.socket, help, sizeof(help));
+    }
     //writes an error message, if the user attempts to send messages in a silent room
     else if (silent) {
         const char error[] = "This room is silent, your messages will not be shown.\n";
@@ -434,7 +452,6 @@ void ChatServer::mainLoop() {
         //checks whether a new user wants to connect
         if (Socket::actionOccured(server_socket)) {
             acceptConnection();
-            std::cout << "New user Connected" << std::endl;
         }
 
         //processes actions of existing users

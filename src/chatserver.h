@@ -21,6 +21,7 @@ struct User {
     std::string username;
     bool has_name = false;
     int socket;
+    bool leaving = false; //true if user want to leave the server
     //bool creating_room = false;
     //std::string created_room_name = "";
 
@@ -42,7 +43,6 @@ struct Room {
     void processMessage(std::string & message, User & user);
     //void removeUser(const User& user);
     //void moveUser(User & user, std::string & new_room_name);
-    void processRemoval();
 
     //std::set<int> user_sockets;
     std::list<User> users;
@@ -59,6 +59,8 @@ struct Room {
 };
 
 struct RoomHandler {
+
+  std::set<int>* sockets;
   std::map<std::string, Room> rooms; //lowercase name -> Room
   std::stack<Room> new_rooms; //rooms to be added in next iteration
   std::set<std::string> room_names; //lowercase room names (including rooms to be added)
@@ -74,10 +76,12 @@ struct RoomHandler {
   void moveUser(User& user, Room& source, Room& target);
   void addUser(User&& user, Room& target);
   void createUser(int user_socket, Room& target);
-  void removeUser(const User& user, Room& target);
+  void removeUser(User& user, Room& source);
   bool nameUser(User& user, const std::string& username);
   void renameUser(User& user, const std::string& new_username);
   bool usernameExists(const std::string& username);
+  void processUserRemoval(Room& source);
+
   std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
 };
 
@@ -85,7 +89,8 @@ class ChatServer {
   public:
 
     ChatServer() {
-      Room silent_room("Silent", &room_handler);
+      room_handler.sockets = &sockets; /////////
+      Room silent_room("Silent", &room_handler); //should be created in RoomHandler
       silent_room.silent = true;
       silent_room.removable = false;
       room_handler.rooms.insert({"silent", silent_room});

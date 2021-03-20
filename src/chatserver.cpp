@@ -1,7 +1,6 @@
 #include "socket.h"
 #include "chatserver.h"
 
-//should be called getLowercase()
 std::string getLowercase(const std::string& text) {
     std::string lowered = text;
     std::transform(lowered.begin(), lowered.end(), lowered.begin(),
@@ -33,18 +32,6 @@ void sanitizeMessage(std::string& message) {
 
 
 
-void Room::processRemoval() {
-    for (auto && socket : removal_sockets) {
-        for (auto it = users.begin(); it != users.end(); it++) {
-            if (it->socket == socket) {
-                //std::cout << "erasing..." << std::endl;
-                users.erase(it);
-                //std::cout << "erased!" << std::endl;
-                break;
-            }
-        }
-    }
-}
 
 
 //does not care about fails, does not send to sender
@@ -60,6 +47,7 @@ void Room::checkAndProcessMessages() {
     char buffer[1024] = {0};
     size_t size = 0;
 
+    //std::cout << users.size() << std::endl;
 
     for (auto && user : users) {
         if (!Socket::actionOccured(user.socket)) {
@@ -78,7 +66,11 @@ void Room::checkAndProcessMessages() {
         processMessage(message, user);
     }
 
-    processRemoval();
+    if (!removal_sockets.empty()) {
+        room_handler->processUserRemoval(*this);
+    }
+
+    //processRemoval();
     //std::cout << "room: " << this->name << " completed its iteration" << std::endl;
 }
 
@@ -125,6 +117,17 @@ void Room::processMessage(std::string & message, User & user) {
             username += "\n";
             Socket::sendMessage(user.socket, username.c_str(), username.size() + 1);
         }
+        return;
+    }
+
+    if (message == "/leave") {
+        const char info[] = "Goodbye.\n";
+        Socket::sendMessage(user.socket, info, sizeof(info));
+        if (!silent) {
+            const char announcement[] = "A user has left the room.\n";
+            sendMessageToOthers(announcement, sizeof(announcement), user);
+        }
+        room_handler->removeUser(user, *this);
         return;
     }
 
@@ -309,7 +312,9 @@ std::map<std::string, Room>::iterator RoomHandler::findRoom(const std::string& r
 void RoomHandler::moveUser(User& user, Room& source, Room& target) {
     User user_cpy = user;
     addUser(std::move(user_cpy), target);
-    removeUser(user, source);
+    //removeUser(user, source);
+    source.removal_sockets.insert(user.socket);
+    source.user_count--;
 }
 
 void RoomHandler::addUser(User&& user, Room& target) {
@@ -327,10 +332,13 @@ void RoomHandler::createUser(int user_socket, Room& target) {
     target.user_count++;
 }
 
-//TODO: what about name removal
-void RoomHandler::removeUser(const User& user, Room& target) {
-    target.removal_sockets.insert(user.socket);
-    target.user_count--;
+//TODO: what about name removal, finish
+void RoomHandler::removeUser(User& user, Room& source) {
+    usernames.erase(user.username);
+    user.leaving = true;
+    source.removal_sockets.insert(user.socket);
+    source.user_count--;
+
 }
 
 bool RoomHandler::nameUser(User& user, const std::string& username) {
@@ -370,6 +378,26 @@ bool RoomHandler::removeRoom(const std::string& room_name) {
     rooms.erase(lowercase_name);
     room_names.erase(room_name);
     return true;
+}
+
+//TODO: weird
+void RoomHandler::processUserRemoval(Room& source) {
+    for (auto && socket : source.removal_sockets) {
+        for (auto it = source.users.begin(); it != source.users.end(); it++) {
+            if (it->socket == socket) {
+                //std::cout << "erasing..." << std::endl;
+                bool leaving = it->leaving;
+                source.users.erase(it);
+                if (leaving) {
+                    sockets->erase(socket);
+                    Socket::closeSocket(socket);
+                }
+                //std::cout << "erased!" << std::endl;
+                break;
+            }
+        }
+    }
+    source.removal_sockets.clear();
 }
 
 

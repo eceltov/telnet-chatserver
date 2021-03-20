@@ -18,6 +18,7 @@ class Socket {
 
     static int createServerSocket(int port);
     static int getNewClientSocket(int serverSocket);
+    static int closeSocket(int socket);
     static int checkActivity(std::set<int> & sockets);
     static int actionOccured(int socket);
     static int getMessage(int socket, char* buffer, size_t buffer_size);

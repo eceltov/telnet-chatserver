@@ -51,6 +51,10 @@ int Socket::getNewClientSocket(int server_socket) {
     return client_socket;
 }
 
+int Socket::closeSocket(int socket) {
+    return close(socket);
+}
+
 //blocking
 int Socket::checkActivity(std::set<int> & sockets) {
     FD_ZERO(&fds); //clear the set

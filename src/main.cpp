@@ -2,12 +2,9 @@
 #include "chatserver.h"
 
 int main() {
-    ChatServer chatserver;
+    std::string default_room_name = "Silent";
+    ChatServer chatserver(default_room_name);
     chatserver.createServerSocket(9999);
-    /*if (resp == -1) {
-        close(9999);
-        chatserver.createServerSocket(9999);
-    }*/
     
     chatserver.mainLoop();
 

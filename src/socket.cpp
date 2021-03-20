@@ -1,8 +1,6 @@
 #include "socket.h"
 
-
-
-fd_set Socket::fds; //is it neccessary? yes it is
+fd_set Socket::fds;
 
 int Socket::createServerSocket(int port) {
     //try to create socket
@@ -24,6 +22,7 @@ int Socket::createServerSocket(int port) {
     if (bind_status == -1)
     {
         std::cerr << "Error binding socket to local address" << std::endl;
+        std::cerr << "If you closed the server recently, try waiting few minutes" << std::endl;
         return -1;
     }
 
@@ -38,7 +37,8 @@ int Socket::createServerSocket(int port) {
     return server_socket;
 }
 
-//blocking
+//makes @server_socket wait until a new client attempts to connect
+//blocking, use after an action occured
 int Socket::getNewClientSocket(int server_socket) {
     struct sockaddr_in client_address;
     socklen_t address_length = sizeof(client_address);
@@ -55,6 +55,7 @@ int Socket::closeSocket(int socket) {
     return close(socket);
 }
 
+//checks for socket activities
 //blocking
 int Socket::checkActivity(std::set<int> & sockets) {
     FD_ZERO(&fds); //clear the set

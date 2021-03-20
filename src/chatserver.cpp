@@ -443,9 +443,6 @@ void ChatServer::mainLoop() {
     while (true) {
         int activities = Socket::checkActivity(sockets);
         if (activities <= 0) {
-            if (activities == -1) {
-                std::cerr << "error: select() error" << std::endl;
-            }
             continue;
         }
 

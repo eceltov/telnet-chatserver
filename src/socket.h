@@ -12,7 +12,6 @@
 #include <set>
 #include <iostream>
 
-
 class Socket {
   public:
 
@@ -28,6 +27,5 @@ class Socket {
 
     static fd_set fds;
 };
-
 
 #endif

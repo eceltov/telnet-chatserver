@@ -11,7 +11,7 @@ _OBJ = \
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 _BIN = \
-	main
+	ChatServer
 
 BIN = $(patsubst %,$(BDIR)/%,$(_BIN))
 
@@ -22,7 +22,7 @@ all: $(OBJ) $(BIN)
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BDIR)/main: $(OBJ) $(SDIR)/main.cpp
+$(BDIR)/ChatServer: $(OBJ) $(SDIR)/main.cpp
 	$(CC) -o $@ $(SDIR)/main.cpp $(OBJ) $(CFLAGS)
 
 clean: 

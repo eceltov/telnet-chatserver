@@ -8,6 +8,7 @@ std::string getLowercase(const std::string& text) {
     return lowered;
 }
 
+//checks whether @name contains only letters and numbers
 bool validateName(const std::string& name) {
     for (auto it = name.cbegin(); it != name.cend(); it++) {
         const char c = *it;
@@ -21,11 +22,11 @@ bool validateName(const std::string& name) {
     return true;
 }
 
+//removes leading and trailing whitespace
 void sanitizeMessage(std::string& message) {
     message.erase(0, message.find_first_not_of(" \t\n\r"));
     message.erase(message.find_last_not_of(" \t\n\r") + 1);
 }
-
 
 
 //////////////////
@@ -70,8 +71,18 @@ void Room::checkAndProcessMessages() {
 
 //creates a response to the @message of @user
 void Room::processMessage(std::string& message, User& user) {
+    //removes the user from server
+    if (message == "/leave") {
+        const char info[] = "Goodbye.\n";
+        Socket::sendMessage(user.socket, info, sizeof(info));
+        if (!silent) {
+            const char announcement[] = "A user has left the room.\n";
+            sendMessageToOthers(announcement, sizeof(announcement), user);
+        }
+        room_handler->removeUser(user, *this);
+    }
     //gives user an username if absent
-    if (!user.has_name) {
+    else if (!user.has_name) {
         if (!validateName(message)) {
             const char error[] = "Please enter a valid name (only use ASCII digits/letters).\n";
             Socket::sendMessage(user.socket, error, sizeof(error));
@@ -90,7 +101,7 @@ void Room::processMessage(std::string& message, User& user) {
             }
         }
     }
-    //write down a list of existing rooms with user counts
+    //displays a list of existing rooms with user counts
     else if (message == "/rooms") {
         for (auto it = room_handler->rooms.begin(); it != room_handler->rooms.end(); it++) {
             std::string room_name = it->second.name + " (" + std::to_string(it->second.user_count) + ")\n";
@@ -103,7 +114,7 @@ void Room::processMessage(std::string& message, User& user) {
             Socket::sendMessage(user.socket, room_name.c_str(), room_name.size() + 1);
         }
     }
-    //write down a list of existing users in current room
+    //displays a list of existing users in current room
     else if (message == "/users") {
         for (auto it = users.begin(); it != users.end(); it++) {
             std::string username = it->username;
@@ -113,16 +124,6 @@ void Room::processMessage(std::string& message, User& user) {
             username += "\n";
             Socket::sendMessage(user.socket, username.c_str(), username.size() + 1);
         }
-    }
-    //removes the user from server
-    else if (message == "/leave") {
-        const char info[] = "Goodbye.\n";
-        Socket::sendMessage(user.socket, info, sizeof(info));
-        if (!silent) {
-            const char announcement[] = "A user has left the room.\n";
-            sendMessageToOthers(announcement, sizeof(announcement), user);
-        }
-        room_handler->removeUser(user, *this);
     }
     //creates a new room
     else if (message.rfind("/create ", 0) == 0) {
@@ -224,6 +225,7 @@ void Room::processMessage(std::string& message, User& user) {
             }
         }
     }
+    //displays commands
     else if (message == "/help") {
         const char help[] = 
         "-----------------------------------------------\n"
@@ -241,7 +243,7 @@ void Room::processMessage(std::string& message, User& user) {
         "-----------------------------------------------\n";
         Socket::sendMessage(user.socket, help, sizeof(help));
     }
-    //writes an error message, if the user attempts to send messages in a silent room
+    //displays an error message, if the user attempts to send messages in a silent room
     else if (silent) {
         const char error[] = "This room is silent, your messages will not be shown.\n";
         Socket::sendMessage(user.socket, error, sizeof(error));
@@ -258,11 +260,13 @@ void Room::processMessage(std::string& message, User& user) {
 ///RoomHandler////
 //////////////////
 
-RoomHandler::RoomHandler(std::string& default_room_name, std::set<int>* sockets_): sockets(sockets_) {
-      Room default_room(default_room_name, this);
-      default_room.silent = true;
-      default_room.removable = false;
-      rooms.insert({getLowercase(default_room_name), default_room});
+RoomHandler::RoomHandler(std::string& default_room_name_, std::set<int>* sockets_) {
+    sockets = sockets_;
+    default_room_name = default_room_name_;
+    Room default_room(default_room_name, this);
+    default_room.silent = true;
+    default_room.removable = false;
+    rooms.insert({getLowercase(default_room_name), default_room});
   }
 
 
@@ -298,7 +302,7 @@ void RoomHandler::addNewRoomEntry(const std::string& room_name) {
 //needs to be called before the next set of user actions is processed
 void RoomHandler::processNewRoomEntries() {
     while (!new_rooms.empty()) {
-        Room room = new_rooms.top(); //TODO: move, dont copy
+        Room room = new_rooms.top();
         new_rooms.pop();
         rooms.insert({getLowercase(room.name), room});
     }
@@ -324,11 +328,13 @@ void RoomHandler::moveUser(User& user, Room& source, Room& target) {
     source.user_count--;
 }
 
-//creates a new user from the given @user_socket and adds him to @target room
-void RoomHandler::createUser(int user_socket, Room& target) {
+//creates a new user from the given @user_socket and adds him to default room
+void RoomHandler::createUser(int user_socket) {
+    auto default_room = findRoom(default_room_name);
+
     User user(user_socket);
-    target.users.push_back(std::move(user));
-    target.user_count++;
+    default_room->second.users.push_back(std::move(user));
+    default_room->second.user_count++;
 }
 
 //prepares @user from @source room to be removed
@@ -465,21 +471,13 @@ void ChatServer::acceptConnection() {
     }
 
     sockets.insert(new_socket);
-
-    auto silent = room_handler.findRoom(default_room_name);
-    if (silent != room_handler.rooms.end()) {
-        room_handler.createUser(new_socket, silent->second);
-    }
-    else {
-        std::cerr << "Default room does not exist" << std::endl;
-    }
+    room_handler.createUser(new_socket);
 
     const char instructions[] = "Welcome to ChatServer\nEnter your name:\n";
-
     Socket::sendMessage(new_socket, instructions, sizeof(instructions));
 }
 
-int ChatServer::createServerSocket(int port) {
+int ChatServer::createServerSocket(unsigned int port) {
     server_socket = Socket::createServerSocket(port);
     if (server_socket == -1) {
         return -1;

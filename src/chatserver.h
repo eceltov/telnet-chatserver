@@ -13,8 +13,11 @@
 #include <algorithm>
 #include <cctype>
 
+
+/**
+ * Represents a user of the chat server.
+ */
 struct User {
-  public:
 
     User(int new_socket) : socket(new_socket) {}
 
@@ -23,60 +26,68 @@ struct User {
     int socket;
     bool leaving = false; //true if user want to leave the server
 
-    bool operator==(const User& other) {
-      return this->socket == other.socket;
-    }
-
 };
 
 struct RoomHandler;
 
+/**
+ * Represents a room of the chat server.
+ * Initialized by its name and a pointer to its handler.
+ * Can check for user actions and process them.
+ */
 struct Room {
   public:
-    Room(std::string name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
 
-    void sendMessageToOthers(const char* buffer, size_t buffer_size, const User & sender);
+    Room(const std::string& name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
+
     void checkAndProcessMessages();
-    void processMessage(std::string & message, User & user);
+    void sendMessageToOthers(const char* buffer, size_t buffer_size, const User& sender);
 
     std::list<User> users;
-    std::set<int> removal_sockets;
+    std::set<int> removal_sockets; //sockets of users that are to be removed
     size_t user_count = 0;
     std::string name;
-    bool silent = false;
-    bool removable = true;
+    bool silent = false; //if true, users cannot openly chat
+    bool removable = true; //if true, the room cannot be removed via user commands
     RoomHandler* room_handler;
 
-  private: ////
+  private:
+
+    void processMessage(std::string& message, User& user);
 };
 
+/**
+ * Stores rooms and provides methods for room and user manipulation.
+ * Stores metadata (names, sockets) about rooms and users. 
+ * Creates a default room at initialization
+ */
 struct RoomHandler {
 
-  RoomHandler(std::string& default_room_name, std::set<int>* sockets_);
+    RoomHandler(std::string& default_room_name_, std::set<int>* sockets_);
 
-  std::set<int>* sockets;
-  std::map<std::string, Room> rooms; //lowercase name -> Room
-  std::stack<Room> new_rooms; //rooms to be added in next iteration
-  std::set<std::string> room_names; //lowercase room names (including rooms to be added)
-  std::set<std::string> usernames;
+    bool roomExists(const std::string& room_name);
+    bool roomNameTaken(const std::string& room_name);
+    void addNewRoomEntry(const std::string& room_name);
+    bool removeRoom(const std::string& room_name);
+    size_t getRoomPopulation(const std::string& room_name);
+    void processNewRoomEntries();
+    void moveUser(User& user, Room& source, Room& target);
+    void createUser(int user_socket);
+    void removeUser(User& user, Room& source);
+    void nameUser(User& user, const std::string& username);
+    void renameUser(User& user, const std::string& new_username);
+    bool usernameExists(const std::string& username);
+    void processUserRemoval(Room& source);
+    void processActions();
+    std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
+    std::list<User>::const_iterator findUser(const std::string& username, const Room& source) const;
 
-  bool roomExists(const std::string& room_name); //checks if Room already exists
-  bool roomNameTaken(const std::string& room_name); //checks if a room already has this name (including new ones)
-  void addNewRoomEntry(const std::string& room_name);
-  bool removeRoom(const std::string& room_name);
-  size_t getRoomPopulation(const std::string& room_name);
-  void processNewRoomEntries();
-  void moveUser(User& user, Room& source, Room& target);
-  void createUser(int user_socket, Room& target);
-  void removeUser(User& user, Room& source);
-  void nameUser(User& user, const std::string& username);
-  void renameUser(User& user, const std::string& new_username);
-  bool usernameExists(const std::string& username);
-  void processUserRemoval(Room& source);
-  void processActions();
-
-  std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
-  std::list<User>::const_iterator findUser(const std::string& username, const Room& source) const;
+    std::string default_room_name;
+    std::set<int>* sockets;
+    std::map<std::string, Room> rooms; //lowercase name -> Room
+    std::stack<Room> new_rooms; //rooms to be added in next iteration
+    std::set<std::string> room_names; //lowercase room names (including rooms to be added)
+    std::set<std::string> usernames;
 };
 
 class ChatServer {
@@ -92,16 +103,17 @@ class ChatServer {
     }
 
     void mainLoop();
-    void acceptConnection();
-    int createServerSocket(int port);
+    int createServerSocket(unsigned int port);
 
     RoomHandler room_handler;
+
   private:
+
+    void acceptConnection();
+
     int server_socket;
-    std::set<int> sockets;
+    std::set<int> sockets; //sockets of all connected users and server
     std::string default_room_name;
 };
-
-
 
 #endif

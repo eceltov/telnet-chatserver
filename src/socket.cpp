@@ -7,7 +7,7 @@ int Socket::createServerSocket(int port) {
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1)
     {
-        std::cerr << "Server socket could not be established" << std::endl;
+        std::cerr << "Server socket could not be established." << std::endl;
         return -1;
     }
 
@@ -21,8 +21,8 @@ int Socket::createServerSocket(int port) {
     int bind_status = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
     if (bind_status == -1)
     {
-        std::cerr << "Error binding socket to local address" << std::endl;
-        std::cerr << "If you closed the server recently, try waiting few minutes" << std::endl;
+        std::cerr << "Error binding socket to local address." << std::endl;
+        std::cerr << "If you closed the server recently, try waiting a few minutes." << std::endl;
         return -1;
     }
 

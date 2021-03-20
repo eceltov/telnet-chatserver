@@ -1,5 +1,6 @@
 CC=g++
 CFLAGS=-Wall
+MKDIR_P = mkdir -p
 SDIR=src
 ODIR=obj
 BDIR=bin
@@ -15,9 +16,15 @@ _BIN = \
 
 BIN = $(patsubst %,$(BDIR)/%,$(_BIN))
 
-all: $(OBJ) $(BIN) 
+all: $(ODIR) $(BDIR) $(OBJ) $(BIN)  
 
 .PHONY: all clean
+
+$(ODIR):
+	$(MKDIR_P) $(ODIR)
+
+$(BDIR):
+	$(MKDIR_P) $(BDIR)
 
 $(ODIR)/%.o: $(SDIR)/%.cpp
 	$(CC) -c -o $@ $< $(CFLAGS)

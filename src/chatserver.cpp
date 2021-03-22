@@ -46,12 +46,12 @@ void Room::sendMessageToOthers(const char* buffer, size_t buffer_size, const Use
 
 //checks whether an user action occured and processes it
 //if user removals are triggered, they are processed after all other user actions are processed
-void Room::checkAndProcessMessages() {
+void Room::checkAndProcessMessages(fd_set* fds) {
     char buffer[1024] = {0};
     size_t size = 0;
 
     for (auto && user : users) {
-        if (!Socket::actionOccured(user.socket)) {
+        if (!Socket::actionOccured(user.socket, fds)) {
             continue;
         }
 
@@ -428,12 +428,12 @@ void RoomHandler::processUserRemoval(Room& source) {
 
 //main method which handles user actions
 //to be invoked when a socket action occured
-void RoomHandler::processActions() {
+void RoomHandler::processActions(fd_set* fds) {
     //adds rooms created in previous invocation
     processNewRoomEntries();    
 
     for (auto it = rooms.begin(); it != rooms.end(); it++) {
-        it->second.checkAndProcessMessages();
+        it->second.checkAndProcessMessages(fds);
     }
 }
 
@@ -443,7 +443,7 @@ void RoomHandler::processActions() {
 //////////////////
 
 
-//waits for actions and processes them
+/*//waits for actions and processes them
 void ChatServer::mainLoop() {
 
     while (true) {
@@ -459,6 +459,44 @@ void ChatServer::mainLoop() {
 
         //processes actions of existing users
         room_handler.processActions();
+    }
+}*/
+
+//waits for actions and processes them
+void ChatServer::mainLoop() {
+
+    while (true) {
+        populateFDS();
+        int activities = Socket::checkActivity(max_socket, &fds);
+        if (activities <= 0) {
+            continue;
+        }
+
+        //checks whether a new user wants to connect
+        if (Socket::actionOccured(server_socket, &fds)) {
+            acceptConnection();
+        }
+
+        //processes actions of existing users
+        room_handler.processActions(&fds);
+    }
+}
+
+void ChatServer::populateFDS() {
+    max_socket = -1;
+    Socket::clearFDS(&fds);
+
+    for (auto && room : room_handler.rooms) {
+        for (auto && user : room.second.users) {
+            Socket::setFDS(user.socket, &fds);
+            if (user.socket > max_socket) {
+                max_socket = user.socket;
+            }
+        }
+    }
+    Socket::setFDS(server_socket, &fds);
+    if (server_socket > max_socket) {
+        max_socket = server_socket;
     }
 }
 

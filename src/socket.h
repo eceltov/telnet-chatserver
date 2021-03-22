@@ -12,20 +12,16 @@
 #include <set>
 #include <iostream>
 
-class Socket {
-  public:
-
-    static int createServerSocket(int port);
-    static int getNewClientSocket(int serverSocket);
-    static int closeSocket(int socket);
-    static int checkActivity(std::set<int> & sockets);
-    static int actionOccured(int socket);
-    static int getMessage(int socket, char* buffer, size_t buffer_size);
-    static int sendMessage(int socket, const char* buffer, size_t buffer_size);
-
-  private:
-
-    static fd_set fds;
+namespace Socket {
+    int createServerSocket(int port);
+    int getNewClientSocket(int serverSocket);
+    int closeSocket(int socket);
+    int checkActivity(int max_socket, fd_set* fds);
+    int actionOccured(int socket, fd_set* fds);
+    int getMessage(int socket, char* buffer, size_t buffer_size);
+    int sendMessage(int socket, const char* buffer, size_t buffer_size);
+    void setFDS(int socket, fd_set* fds);
+    void clearFDS(fd_set* fds);
 };
 
 #endif

@@ -40,7 +40,7 @@ struct Room {
 
     Room(const std::string& name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
 
-    void checkAndProcessMessages();
+    void checkAndProcessMessages(fd_set* fds);
     void sendMessageToOthers(const char* buffer, size_t buffer_size, const User& sender);
 
     std::list<User> users;
@@ -78,7 +78,7 @@ struct RoomHandler {
     void renameUser(User& user, const std::string& new_username);
     bool usernameExists(const std::string& username);
     void processUserRemoval(Room& source);
-    void processActions();
+    void processActions(fd_set* fds);
     std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
     std::list<User>::const_iterator findUser(const std::string& username, const Room& source) const;
 
@@ -104,8 +104,12 @@ class ChatServer {
 
     void mainLoop();
     int createServerSocket(unsigned int port);
+    void populateFDS();
 
     RoomHandler room_handler;
+
+    fd_set fds;
+    int max_socket; //required for select call
 
   private:
 

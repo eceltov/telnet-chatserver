@@ -1,7 +1,5 @@
 #include "socket.h"
 
-fd_set Socket::fds;
-
 int Socket::createServerSocket(int port) {
     //try to create socket
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -55,29 +53,24 @@ int Socket::closeSocket(int socket) {
     return close(socket);
 }
 
-//checks for socket activities
-//blocking
-int Socket::checkActivity(std::set<int> & sockets) {
-    FD_ZERO(&fds); //clear the set
+void Socket::setFDS(int socket, fd_set* fds) {
+    FD_SET(socket, fds);
+} 
 
-    if (sockets.empty()) {
-        return -1;
-    }
-
-    std::set<int>::iterator it; //populate the set with current sockets
-    for (it = sockets.begin(); it != sockets.end(); it++) {
-        FD_SET(*it, &fds);
-    }
-    
-    int last_socket = *sockets.rbegin();
-
-    int activities = select(last_socket + 1, &fds, NULL, NULL, NULL); //check for activity (blocking)
-    return activities;
+void Socket::clearFDS(fd_set* fds) {
+    FD_ZERO(fds);
 }
 
 //checks if socket remained after select() call
-int Socket::actionOccured(int socket) {
-    return FD_ISSET(socket, &fds);
+int Socket::actionOccured(int socket, fd_set* fds) {
+    return FD_ISSET(socket, fds);
+}
+
+//checks for socket activities
+//blocking
+int Socket::checkActivity(int max_socket, fd_set* fds) {
+    int activities = select(max_socket + 1, fds, NULL, NULL, NULL); //check for activity (blocking)
+    return activities;
 }
 
 int Socket::getMessage(int socket, char* buffer, size_t buffer_size) {

@@ -40,8 +40,8 @@ struct Room {
 
     Room(const std::string& name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
 
-    void checkAndProcessMessages(fd_set* fds);
-    void sendMessageToOthers(const char* buffer, size_t buffer_size, const User& sender);
+    //void checkAndProcessMessages(fd_set* fds);
+    //void sendMessageToOthers(const char* buffer, size_t buffer_size, const User& sender);
 
     std::list<User> users;
     std::set<int> removal_sockets; //sockets of users that are to be removed
@@ -53,7 +53,7 @@ struct Room {
 
   private:
 
-    void processMessage(std::string& message, User& user);
+    
 };
 
 /**
@@ -63,7 +63,7 @@ struct Room {
  */
 struct RoomHandler {
 
-    RoomHandler(std::string& default_room_name_, std::set<int>* sockets_);
+    RoomHandler(std::string& default_room_name_);
 
     bool roomExists(const std::string& room_name);
     bool roomNameTaken(const std::string& room_name);
@@ -79,11 +79,12 @@ struct RoomHandler {
     bool usernameExists(const std::string& username);
     void processUserRemoval(Room& source);
     void processActions(fd_set* fds);
+    void sendMessageToRoom(const char* buffer, size_t buffer_size, const User& sender, const Room& room);
+    void processMessage(std::string& message, User& user, Room& room);
     std::map<std::string, Room>::iterator findRoom(const std::string& room_name);
     std::list<User>::const_iterator findUser(const std::string& username, const Room& source) const;
 
     std::string default_room_name;
-    std::set<int>* sockets;
     std::map<std::string, Room> rooms; //lowercase name -> Room
     std::stack<Room> new_rooms; //rooms to be added in next iteration
     std::set<std::string> room_names; //lowercase room names (including rooms to be added)
@@ -94,11 +95,13 @@ class ChatServer {
   public:
 
     ChatServer(std::string& default_room_name_)
-    : room_handler(default_room_name_, &sockets), default_room_name(default_room_name_) {}
+    : room_handler(default_room_name_), default_room_name(default_room_name_) {}
 
     ~ChatServer() {
-        for (auto&& socket : sockets) {
-          Socket::closeSocket(socket);
+        for (auto && room : room_handler.rooms) {
+          for (auto && user : room.second.users) {
+            Socket::closeSocket(user.socket);
+          }
         }
     }
 
@@ -116,7 +119,6 @@ class ChatServer {
     void acceptConnection();
 
     int server_socket;
-    std::set<int> sockets; //sockets of all connected users and server
     std::string default_room_name;
 };
 

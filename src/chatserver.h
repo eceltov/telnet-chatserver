@@ -25,23 +25,17 @@ struct User {
     bool has_name = false;
     int socket;
     bool leaving = false; //true if user want to leave the server
-
 };
-
-struct RoomHandler;
 
 /**
  * Represents a room of the chat server.
- * Initialized by its name and a pointer to its handler.
- * Can check for user actions and process them.
+ * Contains users, stores which users are to be removed in the next iteration
+ * Can be silent (users cannot chat openly)
+ * Can be removable (the room can be removed by users)
  */
 struct Room {
-  public:
 
-    Room(const std::string& name_, RoomHandler* room_handler_): name(name_), room_handler(room_handler_) {};
-
-    //void checkAndProcessMessages(fd_set* fds);
-    //void sendMessageToOthers(const char* buffer, size_t buffer_size, const User& sender);
+    Room(const std::string& name_): name(name_) {};
 
     std::list<User> users;
     std::set<int> removal_sockets; //sockets of users that are to be removed
@@ -49,11 +43,6 @@ struct Room {
     std::string name;
     bool silent = false; //if true, users cannot openly chat
     bool removable = true; //if true, the room cannot be removed via user commands
-    RoomHandler* room_handler;
-
-  private:
-
-    
 };
 
 /**
@@ -91,6 +80,10 @@ struct RoomHandler {
     std::set<std::string> usernames;
 };
 
+/**
+ * Handles new connections and checks for user activity
+ * If an user activity occured, the users file descriptor will be stored in @fds
+ */
 class ChatServer {
   public:
 
@@ -110,9 +103,8 @@ class ChatServer {
     void populateFDS();
 
     RoomHandler room_handler;
-
     fd_set fds;
-    int max_socket; //required for select call
+    int max_socket; //required for select() call
 
   private:
 

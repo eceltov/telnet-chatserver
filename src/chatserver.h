@@ -99,7 +99,7 @@ class ChatServer {
     }
 
     void mainLoop();
-    int createServerSocket(unsigned int port);
+    int createServerSocket(int port);
     void populateFDS();
 
     RoomHandler room_handler;

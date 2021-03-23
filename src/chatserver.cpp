@@ -512,7 +512,7 @@ void ChatServer::acceptConnection() {
     Socket::sendMessage(new_socket, instructions, sizeof(instructions));
 }
 
-int ChatServer::createServerSocket(unsigned int port) {
+int ChatServer::createServerSocket(int port) {
     server_socket = Socket::createServerSocket(port);
     if (server_socket == -1) {
         return -1;
